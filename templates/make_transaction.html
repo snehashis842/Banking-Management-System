@@ -1,0 +1,151 @@
+{% extends "base.html" %} {% block title %}Make Transaction - Bank Management
+System{% endblock %} {% block content %}
+<div class="card">
+  <div class="nav-links">
+    <a href="/dashboard">← Back to Dashboard</a>
+  </div>
+
+  <h2>Make a Transaction</h2>
+
+  <div class="stat-card" style="margin: 20px 0; max-width: 300px">
+    <div class="stat-label">Current Balance</div>
+    <div class="stat-number" id="balanceDisplay">Loading...</div>
+  </div>
+
+  <form id="transactionForm" style="max-width: 500px">
+    <div class="form-group">
+      <label for="amount">Amount (₹):</label>
+      <input
+        type="number"
+        id="amount"
+        name="amount"
+        min="1"
+        step="0.01"
+        required
+      />
+      <small style="color: #666">Minimum amount: ₹1</small>
+    </div>
+
+    <div class="form-group">
+      <label for="type">Transaction Type:</label>
+      <select id="type" name="type" required>
+        <option value="">Select Transaction Type</option>
+        <option value="Credit">💰 Credit (Deposit Money)</option>
+        <option value="Debit">💸 Debit (Withdraw Money)</option>
+      </select>
+    </div>
+
+    <div
+      id="debitWarning"
+      style="
+        display: none;
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 15px 0;
+      "
+    >
+      <strong>⚠️ Withdrawal Notice:</strong>
+      <p>
+        Please ensure you have sufficient balance before proceeding with the
+        withdrawal.
+      </p>
+    </div>
+
+    <div style="display: flex; gap: 10px; margin-top: 30px">
+      <button type="submit" class="btn btn-success">Process Transaction</button>
+      <button type="reset" class="btn">Clear Form</button>
+    </div>
+  </form>
+
+  <div id="message"></div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  let currentBalance = 0;
+
+  async function loadBalance() {
+      try {
+          // Get balance from the backend route that renders this page
+          const balanceElement = document.getElementById('balanceDisplay');
+          const balance = {{ balance }};
+          currentBalance = balance;
+          balanceElement.textContent = `₹${balance.toLocaleString()}`;
+      } catch (error) {
+          showError("message", `Error loading balance: ${error.message}`);
+      }
+  }
+
+  document.getElementById("type").addEventListener("change", function() {
+      const debitWarning = document.getElementById("debitWarning");
+      if (this.value === "Debit") {
+          debitWarning.style.display = "block";
+      } else {
+          debitWarning.style.display = "none";
+      }
+  });
+
+  document.getElementById("amount").addEventListener("input", function() {
+      const amount = parseFloat(this.value);
+      const type = document.getElementById("type").value;
+
+      if (type === "Debit" && amount > currentBalance) {
+          this.setCustomValidity(`Insufficient balance. Available: ₹${currentBalance}`);
+      } else {
+          this.setCustomValidity("");
+      }
+  });
+
+  document.getElementById("transactionForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const submitBtn = this.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Processing...';
+      submitBtn.disabled = true;
+
+      const formData = new FormData(this);
+      const amount = parseFloat(formData.get("amount"));
+      const type = formData.get("type");
+
+      // Client-side validation
+      if (type === "Debit" && amount > currentBalance) {
+          showError("message", `Insufficient balance. Available: ₹${currentBalance.toLocaleString()}`);
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+          return;
+      }
+
+      const transactionData = { amount, type };
+
+      try {
+          const response = await fetch("/make_transaction", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(transactionData),
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+              showSuccess("message", `${result.message}<br>New Balance: ₹${result.new_balance.toLocaleString()}`);
+              document.getElementById("balanceDisplay").textContent = `₹${result.new_balance.toLocaleString()}`;
+              currentBalance = result.new_balance;
+              this.reset();
+              document.getElementById("debitWarning").style.display = "none";
+          } else {
+              if (handleAuthError(response)) return;
+              showError("message", result.detail);
+          }
+      } catch (error) {
+          showError("message", `Network error: ${error.message}`);
+      } finally {
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+      }
+  });
+
+  document.addEventListener("DOMContentLoaded", loadBalance);
+</script>
+{% endblock %}

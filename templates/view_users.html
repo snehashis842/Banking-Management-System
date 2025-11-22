@@ -1,0 +1,155 @@
+{% extends "base.html" %} {% block title %}View Users - Bank Management System{%
+endblock %} {% block content %}
+<div class="card">
+  <div class="nav-links">
+    <a href="/dashboard">← Back to Dashboard</a>
+    {% if user.Role in ["Admin", "Super_Admin"] %}
+    <a href="/add_user_page">Add New User</a>
+    {% endif %}
+  </div>
+
+  <h2>All Users</h2>
+
+  <div style="margin: 20px 0">
+    <input
+      type="text"
+      id="searchInput"
+      placeholder="Search users..."
+      style="max-width: 300px"
+    />
+    <select id="roleFilter" style="max-width: 200px; margin-left: 10px">
+      <option value="">All Roles</option>
+      <option value="Super_Admin">Super Admin</option>
+      <option value="Admin">Admin</option>
+      <option value="Employee">Employee</option>
+      <option value="Customer">Customer</option>
+    </select>
+  </div>
+
+  <div id="usersTable"></div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  let allUsers = [];
+
+  async function loadUsers() {
+    showLoading("usersTable");
+
+    try {
+      const response = await fetch("/get_users");
+      if (!response.ok) {
+        if (handleAuthError(response)) return;
+        throw new Error("Failed to load users");
+      }
+
+      const data = await response.json();
+      allUsers = data.users;
+      displayUsers(allUsers);
+    } catch (error) {
+      showError("usersTable", `Error loading users: ${error.message}`);
+    }
+  }
+
+  function displayUsers(users) {
+    if (users.length === 0) {
+      document.getElementById("usersTable").innerHTML =
+        '<div class="alert alert-info">No users found.</div>';
+      return;
+    }
+
+    let tableHTML = `
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Role</th>
+                        <th>Gender</th>
+                        <th>DOB</th>
+                        <th>Last Login</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    users.forEach((user) => {
+      const lastLogin = user.LastLoggedIn
+        ? new Date(user.LastLoggedIn).toLocaleDateString()
+        : "Never";
+
+      // Use the new ActivityStatus field that shows actual login activity
+      const status = user.ActivityStatus || "Inactive";
+      const statusColor = status === "Active" ? "#27ae60" : "#e74c3c";
+
+      tableHTML += `
+            <tr>
+                <td><strong>${user.UserId}</strong></td>
+                <td>${user.First_Name} ${user.Last_Name}</td>
+                <td>${user.EmailID}</td>
+                <td>${
+                  Array.isArray(user.PhoneNo)
+                    ? user.PhoneNo.join(", ")
+                    : user.PhoneNo
+                }</td>
+                <td><span style="background: #f8f9fa; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${
+                  user.Role
+                }</span></td>
+                <td>${user.Gender}</td>
+                <td>${user.DOB}</td>
+                <td>${lastLogin}</td>
+                <td><span style="color: ${statusColor}; font-weight: bold;">${status}</span></td>
+            </tr>
+        `;
+    });
+
+    tableHTML += `
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 20px; color: #666; font-size: 14px;">
+            Showing ${users.length} user(s)
+        </div>
+    `;
+
+    document.getElementById("usersTable").innerHTML = tableHTML;
+  }
+
+  function filterUsers() {
+    const searchTerm = document
+      .getElementById("searchInput")
+      .value.toLowerCase();
+    const roleFilter = document.getElementById("roleFilter").value;
+
+    let filteredUsers = allUsers.filter((user) => {
+      const matchesSearch =
+        !searchTerm ||
+        user.UserId.toLowerCase().includes(searchTerm) ||
+        `${user.First_Name} ${user.Last_Name}`
+          .toLowerCase()
+          .includes(searchTerm) ||
+        user.EmailID.toLowerCase().includes(searchTerm);
+
+      const matchesRole = !roleFilter || user.Role === roleFilter;
+
+      return matchesSearch && matchesRole;
+    });
+
+    displayUsers(filteredUsers);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    loadUsers();
+
+    document
+      .getElementById("searchInput")
+      .addEventListener("input", filterUsers);
+    document
+      .getElementById("roleFilter")
+      .addEventListener("change", filterUsers);
+  });
+</script>
+{% endblock %}

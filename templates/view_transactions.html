@@ -1,0 +1,155 @@
+{% extends "base.html" %} {% block title %}View Transactions - Bank Management
+System{% endblock %} {% block content %}
+<div class="card">
+  <div class="nav-links">
+    <a href="/dashboard">← Back to Dashboard</a>
+  </div>
+
+  <h2>Transaction History</h2>
+  <p style="color: #666; margin-bottom: 20px">
+    Showing transactions from the last 3 months
+  </p>
+
+  <div style="margin: 20px 0">
+    <input
+      type="text"
+      id="searchInput"
+      placeholder="Search by User ID or Transaction ID..."
+      style="max-width: 300px"
+    />
+    <select id="typeFilter" style="max-width: 200px; margin-left: 10px">
+      <option value="">All Types</option>
+      <option value="Credit">Credit</option>
+      <option value="Debit">Debit</option>
+    </select>
+    <input
+      type="date"
+      id="dateFilter"
+      style="max-width: 200px; margin-left: 10px"
+    />
+  </div>
+
+  <div id="transactionsTable"></div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  let allTransactions = [];
+
+  async function loadTransactions() {
+    showLoading("transactionsTable");
+
+    try {
+      const response = await fetch("/get_transactions");
+      if (!response.ok) {
+        if (handleAuthError(response)) return;
+        throw new Error("Failed to load transactions");
+      }
+
+      const data = await response.json();
+      allTransactions = data.transactions;
+      displayTransactions(allTransactions);
+    } catch (error) {
+      showError(
+        "transactionsTable",
+        `Error loading transactions: ${error.message}`
+      );
+    }
+  }
+
+  function displayTransactions(transactions) {
+    if (transactions.length === 0) {
+      document.getElementById("transactionsTable").innerHTML =
+        '<div class="alert alert-info">No transactions found for the last 3 months.</div>';
+      return;
+    }
+
+    let tableHTML = `
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Transaction ID</th>
+                        <th>User ID</th>
+                        <th>Amount</th>
+                        <th>Type</th>
+                        <th>Date & Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    transactions.forEach((txn) => {
+      const amount = parseFloat(txn.TransactionAmount);
+      const typeColor =
+        txn.TransactionType === "Credit" ? "#27ae60" : "#e74c3c";
+      const typeIcon = txn.TransactionType === "Credit" ? "💰" : "💸";
+      const formattedDate = new Date(txn.TransactionDate).toLocaleString();
+
+      tableHTML += `
+            <tr>
+                <td><code>${txn.TransactionId}</code></td>
+                <td><strong>${txn.UserId}</strong></td>
+                <td style="color: ${typeColor}; font-weight: bold;">₹${amount.toLocaleString()}</td>
+                <td>
+                    <span style="color: ${typeColor};">
+                        ${typeIcon} ${txn.TransactionType}
+                    </span>
+                </td>
+                <td>${formattedDate}</td>
+            </tr>
+        `;
+    });
+
+    tableHTML += `
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 20px; color: #666; font-size: 14px;">
+            Showing ${transactions.length} transaction(s)
+        </div>
+    `;
+
+    document.getElementById("transactionsTable").innerHTML = tableHTML;
+  }
+
+  function filterTransactions() {
+    const searchTerm = document
+      .getElementById("searchInput")
+      .value.toLowerCase();
+    const typeFilter = document.getElementById("typeFilter").value;
+    const dateFilter = document.getElementById("dateFilter").value;
+
+    let filteredTransactions = allTransactions.filter((txn) => {
+      const matchesSearch =
+        !searchTerm ||
+        txn.TransactionId.toLowerCase().includes(searchTerm) ||
+        txn.UserId.toLowerCase().includes(searchTerm);
+
+      const matchesType = !typeFilter || txn.TransactionType === typeFilter;
+
+      const matchesDate =
+        !dateFilter ||
+        new Date(txn.TransactionDate).toDateString() ===
+          new Date(dateFilter).toDateString();
+
+      return matchesSearch && matchesType && matchesDate;
+    });
+
+    displayTransactions(filteredTransactions);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    loadTransactions();
+
+    document
+      .getElementById("searchInput")
+      .addEventListener("input", filterTransactions);
+    document
+      .getElementById("typeFilter")
+      .addEventListener("change", filterTransactions);
+    document
+      .getElementById("dateFilter")
+      .addEventListener("change", filterTransactions);
+  });
+</script>
+{% endblock %}

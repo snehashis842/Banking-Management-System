@@ -1,0 +1,95 @@
+{% extends "base.html" %} {% block title %}Login - Bank Management System{%
+endblock %} {% block content %}
+<div class="card" style="max-width: 400px; margin: 50px auto">
+  <h2 style="text-align: center; margin-bottom: 30px">
+    Bank Management System
+  </h2>
+
+  <form id="loginForm">
+    <div class="form-group">
+      <label for="userId">User ID:</label>
+      <input
+        type="text"
+        id="userId"
+        name="UserId"
+        required
+        autocomplete="username"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="password">Password:</label>
+      <input
+        type="password"
+        id="password"
+        name="Password"
+        required
+        autocomplete="current-password"
+      />
+    </div>
+
+    <button type="submit" class="btn btn-success" style="width: 100%">
+      Login
+    </button>
+  </form>
+
+  <div id="message" style="margin-top: 20px"></div>
+
+  <div
+    style="
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+      text-align: center;
+      color: #666;
+      font-size: 12px;
+    "
+  >
+    <p>Default password format: Test@DDMMYYYY (based on your date of birth)</p>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  document
+    .getElementById("loginForm")
+    .addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const submitBtn = this.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = "Logging in...";
+      submitBtn.disabled = true;
+
+      const formData = new FormData(this);
+      const loginData = {
+        UserId: formData.get("UserId"),
+        Password: formData.get("Password"),
+      };
+
+      try {
+        const response = await fetch("/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(loginData),
+        });
+
+        const result = await response.json();
+        const messageDiv = document.getElementById("message");
+
+        if (response.ok) {
+          showSuccess("message", result.message);
+          setTimeout(() => {
+            window.location.href = "/dashboard";
+          }, 1000);
+        } else {
+          showError("message", result.detail);
+        }
+      } catch (error) {
+        showError("message", `Network error: ${error.message}`);
+      } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    });
+</script>
+{% endblock %}
