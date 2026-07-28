@@ -1,0 +1,127 @@
+{% extends "base.html" %} {% block title %}Sign Up - Bank Management System{%
+endblock %} {% block content %}
+<div class="card" style="max-width: 480px; margin: 50px auto">
+  <h2 style="text-align: center; margin-bottom: 30px">Create Your Account</h2>
+
+  <form id="signupForm">
+    <div class="form-group">
+      <label for="firstName">First Name:</label>
+      <input type="text" id="firstName" name="First_Name" required />
+    </div>
+
+    <div class="form-group">
+      <label for="lastName">Last Name:</label>
+      <input type="text" id="lastName" name="Last_Name" required />
+    </div>
+
+    <div class="form-group">
+      <label for="email">Email:</label>
+      <input type="email" id="email" name="EmailID" required autocomplete="email" />
+    </div>
+
+    <div class="form-group">
+      <label for="dob">Date of Birth (dd-mm-yyyy):</label>
+      <input type="text" id="dob" name="DOB" placeholder="01-01-1990" required />
+    </div>
+
+    <div class="form-group">
+      <label for="gender">Gender:</label>
+      <select id="gender" name="Gender" required>
+        <option value="">Select</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="phone">Phone Number (10 digits):</label>
+      <input type="text" id="phone" name="PhoneNo" placeholder="9876543210" required />
+    </div>
+
+    <div class="form-group">
+      <label for="address">Address:</label>
+      <input type="text" id="address" name="Address" required />
+    </div>
+
+    <div style="
+        background: #f4f6f8;
+        border: 1px solid #e2e6ea;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: #555;
+        margin-bottom: 16px;
+      ">
+      Your initial password will be <strong>Test@DDMMYYYY</strong> (your date
+      of birth). It will also be emailed to you. You can change it after
+      logging in.
+    </div>
+
+    <button type="submit" class="btn btn-success" style="width: 100%">
+      Create Account
+    </button>
+  </form>
+
+  <div id="message" style="margin-top: 20px"></div>
+
+  <div style="text-align: center; margin-top: 20px; font-size: 14px">
+    <p>
+      Already have an account?
+      <a href="/" style="font-weight: 600">Log in</a>
+    </p>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  document
+    .getElementById("signupForm")
+    .addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const submitBtn = this.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = "Creating account...";
+      submitBtn.disabled = true;
+
+      const formData = new FormData(this);
+      const signupData = {
+        First_Name: formData.get("First_Name"),
+        Last_Name: formData.get("Last_Name"),
+        EmailID: formData.get("EmailID"),
+        DOB: formData.get("DOB"),
+        PhoneNo: [formData.get("PhoneNo")],
+        Gender: formData.get("Gender"),
+        Address: formData.get("Address"),
+      };
+
+      try {
+        const response = await fetch("/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(signupData),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showSuccess(
+            "message",
+            `Account created! Your User ID is ${result.UserId}. Your password (Test@DDMMYYYY) has been emailed to you. Redirecting to login...`
+          );
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 2000);
+        } else {
+          showError("message", result.detail);
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+        }
+      } catch (error) {
+        showError("message", `Network error: ${error.message}`);
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,173 @@
+{% extends "base.html" %} {% block title %}Dashboard - Bank Management System{%
+endblock %} {% block content %}
+<div class="card">
+  <div
+    style="
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    "
+  >
+    <div>
+      <h2>Welcome, {{ user.First_Name }} {{ user.Last_Name }}</h2>
+      <p style="color: #666">Role: {{ user.Role }}</p>
+    </div>
+    <button onclick="logout()" class="btn btn-danger">Logout</button>
+  </div>
+
+  <div class="stats-grid" id="statsContainer">
+    <div class="stat-card">
+      <div class="stat-number" id="totalUsers">-</div>
+      <div class="stat-label">Total Users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" id="activeUsers">-</div>
+      <div class="stat-label">Active Users</div>
+    </div>
+    {% if user.Role == "Customer" %}
+    <div class="stat-card">
+      <div class="stat-number" id="currentBalance">-</div>
+      <div class="stat-label">Current Balance</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="nav-links">
+    <h3>Quick Actions</h3>
+    <div id="dynamicActions" style="margin-top: 15px"></div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  let currentUser = {{ user | tojson }};
+
+  async function loadStats() {
+      showLoading("statsContainer");
+
+      try {
+          const response = await fetch("/get_dashboard_stats");
+          if (!response.ok) {
+              if (handleAuthError(response)) return;
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.detail || `HTTP ${response.status}: Failed to load stats`);
+          }
+
+          const stats = await response.json();
+
+          // Build stats display based on user role
+          let statsHTML = '';
+
+          if (currentUser.Role === "Customer") {
+              // Customer-specific dashboard
+              statsHTML = `
+                  <div class="stat-card">
+                      <div class="stat-number">₹${stats.current_balance.toLocaleString()}</div>
+                      <div class="stat-label">Current Balance</div>
+                  </div>
+                  <div class="stat-card">
+                      <div class="stat-number">${stats.monthly_transactions}</div>
+                      <div class="stat-label">This Month's Transactions</div>
+                  </div>
+                  <div class="stat-card">
+                      <div class="stat-number">${stats.recent_logins}</div>
+                      <div class="stat-label">Recent Logins (7 days)</div>
+                  </div>
+              `;
+          } else {
+              // Admin/Employee dashboard
+              statsHTML = `
+                  <div class="stat-card">
+                      <div class="stat-number">${stats.total_users}</div>
+                      <div class="stat-label">Total Users</div>
+                  </div>
+                  <div class="stat-card">
+                      <div class="stat-number">${stats.active_users}</div>
+                      <div class="stat-label">Active Users</div>
+                  </div>
+                  <div class="stat-card">
+                      <div class="stat-number">${stats.customers}</div>
+                      <div class="stat-label">Customers</div>
+                  </div>
+                  <div class="stat-card">
+                      <div class="stat-number">${stats.staff_members}</div>
+                      <div class="stat-label">Staff Members</div>
+                  </div>
+              `;
+
+              // Add admin-specific stats
+              if (currentUser.Role === "Admin" || currentUser.Role === "Super_Admin") {
+                  statsHTML += `
+                      <div class="stat-card">
+                          <div class="stat-number">₹${stats.total_balance.toLocaleString()}</div>
+                          <div class="stat-label">Total Bank Balance</div>
+                      </div>
+                      <div class="stat-card">
+                          <div class="stat-number">${stats.suspended_users}</div>
+                          <div class="stat-label">Suspended Users</div>
+                      </div>
+                  `;
+              }
+
+              statsHTML += `
+                  <div class="stat-card">
+                      <div class="stat-number">${stats.recent_logins}</div>
+                      <div class="stat-label">Recent Logins (7 days)</div>
+                  </div>
+              `;
+          }
+
+          document.getElementById("statsContainer").innerHTML = statsHTML;
+
+      } catch (error) {
+          console.error("Failed to load stats:", error);
+          showError("statsContainer", `Failed to load statistics: ${error.message}`);
+      }
+  }
+
+
+
+  function setupActions() {
+      const actionsDiv = document.getElementById("dynamicActions");
+      let actions = [];
+
+      // Common actions
+      actions.push('<a href="/view_users" class="btn">View All Users</a>');
+
+      // Role-specific actions
+      if (currentUser.Role === "Customer") {
+          actions.push('<a href="/transaction_page" class="btn btn-success">Make Transaction</a>');
+          actions.push('<a href="/download_transaction_chart" class="btn" download>📊 Download Transaction Chart</a>');
+      }
+
+      if (["Admin", "Employee", "Super_Admin"].includes(currentUser.Role)) {
+          actions.push('<a href="/view_transactions_page" class="btn">View Transactions</a>');
+      }
+
+      if (["Admin", "Super_Admin"].includes(currentUser.Role)) {
+          actions.push('<a href="/add_user_page" class="btn btn-success">Add New User</a>');
+      }
+
+      if (currentUser.Role === "Super_Admin") {
+          actions.push('<a href="/monthly_report" class="btn">Monthly Report</a>');
+      }
+
+      actionsDiv.innerHTML = actions.join(' ');
+  }
+
+  async function logout() {
+      try {
+          await fetch("/logout", { method: "POST" });
+          window.location.href = "/";
+      } catch (error) {
+          console.error("Logout failed:", error);
+          window.location.href = "/";
+      }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+      loadStats();
+      setupActions();
+  });
+</script>
+{% endblock %}
